@@ -1,30 +1,33 @@
 name: VW ID.3 Telemetry Sync
 
 on:
+  schedule:
+    - cron: '*/20 * * * *'
   workflow_dispatch:
+
+permissions:
+  contents: write
 
 jobs:
   sync:
     runs-on: ubuntu-latest
     steps:
-      - name: 1. Test EVCC Direct Mobile API (fara modulul DSG / EU Data Act)
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install Dependencies
+        run: pip install volkswagencarnet aiohttp
+      - name: Run VW Sync Python
         env:
           VW_USER: ${{ secrets.VW_USER }}
           VW_PASS: ${{ secrets.VW_PASS }}
+        run: python3 sync_vw.py
+      - name: Save to GitHub JSON
         run: |
-          python3 -c '
-          import os
-          u = os.environ["VW_USER"].strip()
-          p = os.environ["VW_PASS"].strip()
-          with open("evcc.yaml", "w") as f:
-              f.write(f"vehicles:\n  - name: id3\n    type: template\n    template: id\n    user: \"{u}\"\n    password: \"{p}\"\n")
-          '
-          docker run --rm -v $(pwd)/evcc.yaml:/etc/evcc.yaml evcc/evcc:0.131.5 evcc -c /etc/evcc.yaml vehicle || true
-
-      - name: 2. Vezi exact link-ul DSG cu -l trace pe latest
-        env:
-          VW_USER: ${{ secrets.VW_USER }}
-          VW_PASS: ${{ secrets.VW_PASS }}
-        run: |
-          docker run --rm -v $(pwd)/evcc.yaml:/etc/evcc.yaml evcc/evcc:latest evcc -l trace -c /etc/evcc.yaml vehicle || true
+          git config user.name "VW-Bot"
+          git config user.email "bot@github.com"
+          git add vw_data.json
+          git diff --staged --quiet || git commit -m "Auto-update VW telemetry"
+          git push
           
