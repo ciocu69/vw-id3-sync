@@ -7,11 +7,11 @@ jobs:
   sync:
     runs-on: ubuntu-latest
     steps:
-      - name: Inspect EVCC Help & Supported Types
+      - name: Inspect EVCC Templates & Vehicle Types
         run: |
-          echo "=== COMENZI DISPONIBILE ==="
+          echo "=== VERIFICARE TEMPLATE-URI VEHICULE ==="
           docker run --rm evcc/evcc:latest evcc --help || true
           
-          echo -e "\n=== OPȚIUNI PENTRU VEHICLE ==="
-          docker run --rm evcc/evcc:latest evcc vehicle --help || true
+          echo -e "\n=== DUMP PENTRU VEHICLE ==="
+          docker run --rm evcc/evcc:latest evcc dump --template vehicle | grep -iE "vw|volkswagen|id" || true
           
