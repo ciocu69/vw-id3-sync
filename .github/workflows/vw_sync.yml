@@ -21,3 +21,4 @@ jobs:
               password: "${VW_PASS}"
           EOF
           docker run --rm -v $(pwd)/evcc.yaml:/etc/evcc.yaml evcc/evcc:latest evcc -c /etc/evcc.yaml vehicle
+          
