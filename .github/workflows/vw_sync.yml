@@ -1,52 +1,20 @@
 name: VW ID.3 Telemetry Sync
 
 on:
-  schedule:
-    - cron: '*/20 * * * *'
   workflow_dispatch:
-
-permissions:
-  contents: write
 
 jobs:
   sync:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-
-      - name: Fetch Telemetry via Native ID Protocol
-        env:
-          VW_USER: ${{ secrets.VW_USER }}
-          VW_PASS: ${{ secrets.VW_PASS }}
+      - name: Inspect EVCC Supported Templates
         run: |
-          python3 -c '
-          import os
-          u = os.environ.get("VW_USER", "").strip().replace("\"", "\\\"")
-          p = os.environ.get("VW_PASS", "").strip().replace("\"", "\\\"")
+          echo "=== TOATE TEMPLATE-URILE VOLKSWAGEN IN EVCC ==="
+          docker run --rm evcc/evcc:latest evcc template vehicle | grep -iE "vw|volkswagen|id" || true
           
-          # Configuratie directa type: id (motorul nativ WeConnect ID fara DSG)
-          cfg = f"""vehicles:
-            - name: id3
-              type: id
-              user: "{u}"
-              password: "{p}"
-          """
-          with open("evcc.yaml", "w", encoding="utf-8") as f:
-              f.write(cfg)
-          '
-          
-          echo "Testare conectare cu motorul nativ MEB..."
-          docker run --rm -v $(pwd)/evcc.yaml:/etc/evcc.yaml evcc/evcc:0.129.0 evcc -c /etc/evcc.yaml vehicle > evcc_out.txt 2>&1 || true
-          cat evcc_out.txt
+          echo -e "\n=== DETALII TEMPLATE VW ==="
+          docker run --rm evcc/evcc:latest evcc template vehicle vw || true
 
-      - name: Process Data
-        run: python3 sync_vw.py
-
-      - name: Commit to GitHub
-        run: |
-          git config user.name "VW-Bot"
-          git config user.email "bot@github.com"
-          git add vw_data.json
-          git diff --staged --quiet || git commit -m "Auto-update VW telemetry"
-          git push
+          echo -e "\n=== DETALII TEMPLATE ID (daca exista) ==="
+          docker run --rm evcc/evcc:latest evcc template vehicle id || true
           
