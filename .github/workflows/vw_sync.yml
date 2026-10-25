@@ -7,16 +7,12 @@ jobs:
   sync:
     runs-on: ubuntu-latest
     steps:
-      - name: Install EVCC (Motorul german actualizat la zi pentru VW ID)
-        run: |
-          curl -sL https://github.com/evcc-io/evcc/releases/latest/download/evcc_linux-amd64.tar.gz | tar xz
-          ./evcc version
-      - name: Test VW ID.3 Connection via EVCC
+      - name: Test VW ID.3 Connection via Official EVCC Docker
         env:
           VW_USER: ${{ secrets.VW_USER }}
           VW_PASS: ${{ secrets.VW_PASS }}
         run: |
-          cat << 'EOF' > evcc.yaml
+          cat <<EOF > evcc.yaml
           vehicles:
             - name: id3
               type: template
@@ -24,5 +20,4 @@ jobs:
               user: "${VW_USER}"
               password: "${VW_PASS}"
           EOF
-          ./evcc vehicle
-          
+          docker run --rm -v $(pwd)/evcc.yaml:/etc/evcc.yaml evcc/evcc:latest evcc -c /etc/evcc.yaml vehicle
