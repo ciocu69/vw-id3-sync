@@ -1,7 +1,12 @@
 name: VW ID.3 Telemetry Sync
 
 on:
+  schedule:
+    - cron: '*/20 * * * *'
   workflow_dispatch:
+
+permissions:
+  contents: write
 
 jobs:
   sync:
@@ -11,65 +16,18 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
-      - name: Test Direct ID Mobile API
+      - name: Install dependencies
+        run: pip install requests
+      - name: Run VW Telemetry Sync
         env:
           VW_USER: ${{ secrets.VW_USER }}
           VW_PASS: ${{ secrets.VW_PASS }}
+        run: python3 sync_vw.py
+      - name: Commit to GitHub
         run: |
-          pip install requests
-          python3 -c '
-          import os, sys, requests, re
-
-          user = os.environ.get("VW_USER", "").strip()
-          password = os.environ.get("VW_PASS", "").strip()
-
-          session = requests.Session()
-          session.headers.update({
-              "User-Agent": "Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0 Mobile Safari/537.36",
-              "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"
-          })
-
-          print("1. Initiere sesiune login...")
-          # Endpoint-ul standard al aplicatiei myVolkswagen ID
-          auth_url = "https://identity.vwgroup.io/oidc/v1/authorize"
-          params = {
-              "client_id": "9496332b-ea03-43fe-a232-38e96de43ebd@apps_vw-dilab_com",
-              "redirect_uri": "weconnect://authenticated",
-              "response_type": "code id_token token",
-              "scope": "openid profile badge cars vin",
-              "prompt": "login"
-          }
-          r = session.get(auth_url, params=params)
-          print(f"Status initial: {r.status_code}")
-
-          # Cautam datele din formular
-          email_action = re.search(r"action=\"([^\"]+)\"", r.text)
-          csrf_match = re.search(r"name=\"_csrf\"\s+value=\"([^\"]+)\"", r.text)
-          relay_match = re.search(r"name=\"relayState\"\s+value=\"([^\"]+)\"", r.text)
-          hmac_match = re.search(r"name=\"hmac\"\s+value=\"([^\"]+)\"", r.text)
-
-          if not email_action:
-              print("Eroare la gasirea formularului VW. Raspuns:")
-              print(r.text[:500])
-              sys.exit(1)
-
-          post_url = "https://identity.vwgroup.io" + email_action.group(1)
-          payload = {
-              "_csrf": csrf_match.group(1) if csrf_match else "",
-              "relayState": relay_match.group(1) if relay_match else "",
-              "hmac": hmac_match.group(1) if hmac_match else "",
-              "email": user
-          }
-
-          print("2. Trimitere email...")
-          r_email = session.post(post_url, data=payload)
-          print(f"Status dupa email: {r_email.status_code}")
-
-          pwd_action = re.search(r"action=\"([^\"]+)\"", r_email.text)
-          if not pwd_action:
-              print("Formular parola negasit. Redirect sau eroare:")
-              print(r_email.text[:400])
-          else:
-              print("Formular de parola gasit cu succes!")
-          '
+          git config user.name "VW-Bot"
+          git config user.email "bot@github.com"
+          git add vw_data.json
+          git diff --staged --quiet || git commit -m "Auto-update VW telemetry"
+          git push
           
