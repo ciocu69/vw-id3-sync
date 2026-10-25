@@ -7,7 +7,7 @@ jobs:
   sync:
     runs-on: ubuntu-latest
     steps:
-      - name: Run EVCC in Debug Mode (Fara WeConnect-python)
+      - name: 1. Test EVCC Direct Mobile API (fara modulul DSG / EU Data Act)
         env:
           VW_USER: ${{ secrets.VW_USER }}
           VW_PASS: ${{ secrets.VW_PASS }}
@@ -19,5 +19,12 @@ jobs:
           with open("evcc.yaml", "w") as f:
               f.write(f"vehicles:\n  - name: id3\n    type: template\n    template: id\n    user: \"{u}\"\n    password: \"{p}\"\n")
           '
-          docker run --rm -v $(pwd)/evcc.yaml:/etc/evcc.yaml evcc/evcc:latest evcc -l debug -c /etc/evcc.yaml vehicle
+          docker run --rm -v $(pwd)/evcc.yaml:/etc/evcc.yaml evcc/evcc:0.131.5 evcc -c /etc/evcc.yaml vehicle || true
+
+      - name: 2. Vezi exact link-ul DSG cu -l trace pe latest
+        env:
+          VW_USER: ${{ secrets.VW_USER }}
+          VW_PASS: ${{ secrets.VW_PASS }}
+        run: |
+          docker run --rm -v $(pwd)/evcc.yaml:/etc/evcc.yaml evcc/evcc:latest evcc -l trace -c /etc/evcc.yaml vehicle || true
           
