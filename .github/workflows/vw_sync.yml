@@ -14,35 +14,29 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Configure and Run EVCC
+      - name: Fetch Telemetry via Native ID Protocol
         env:
           VW_USER: ${{ secrets.VW_USER }}
           VW_PASS: ${{ secrets.VW_PASS }}
         run: |
-          cat << 'EOF' > make_config.py
+          python3 -c '
           import os
-          u = os.environ.get("VW_USER", "").strip()
-          p = os.environ.get("VW_PASS", "").strip()
+          u = os.environ.get("VW_USER", "").strip().replace("\"", "\\\"")
+          p = os.environ.get("VW_PASS", "").strip().replace("\"", "\\\"")
           
-          config_content = f"""vehicles:
+          # Configuratie directa type: id (motorul nativ WeConnect ID fara DSG)
+          cfg = f"""vehicles:
             - name: id3
-              type: template
-              template: id
-              title: ID3
+              type: id
               user: "{u}"
               password: "{p}"
           """
           with open("evcc.yaml", "w", encoding="utf-8") as f:
-              f.write(config_content)
-          EOF
-          python3 make_config.py
+              f.write(cfg)
+          '
           
-          echo "=== CONFIG GENERAT (fara parola) ==="
-          grep -v "password:" evcc.yaml
-          echo "====================================="
-          
-          # Rulam direct pe latest cu parametrul vehicle
-          docker run --rm -v $(pwd)/evcc.yaml:/etc/evcc.yaml evcc/evcc:latest evcc -c /etc/evcc.yaml vehicle > evcc_out.txt 2>&1 || true
+          echo "Testare conectare cu motorul nativ MEB..."
+          docker run --rm -v $(pwd)/evcc.yaml:/etc/evcc.yaml evcc/evcc:0.129.0 evcc -c /etc/evcc.yaml vehicle > evcc_out.txt 2>&1 || true
           cat evcc_out.txt
 
       - name: Process Data
