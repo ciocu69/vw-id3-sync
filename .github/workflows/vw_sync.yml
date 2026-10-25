@@ -13,17 +13,26 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: '3.11'
-      - name: Install Dependencies
-        run: pip install volkswagencarnet aiohttp
-      - name: Run VW Sync Python
+
+      - name: Fetch via EVCC Legacy VW Engine
         env:
           VW_USER: ${{ secrets.VW_USER }}
           VW_PASS: ${{ secrets.VW_PASS }}
+        run: |
+          python3 -c '
+          import os
+          u = os.environ["VW_USER"].replace("\"", "\\\"")
+          p = os.environ["VW_PASS"].replace("\"", "\\\"")
+          with open("evcc.yaml", "w") as f:
+              f.write(f"vehicles:\n  - name: id3\n    type: template\n    template: vw\n    user: \"{u}\"\n    password: \"{p}\"\n")
+          '
+          docker run --rm -v $(pwd)/evcc.yaml:/etc/evcc.yaml evcc/evcc:0.130.0 evcc -c /etc/evcc.yaml vehicle > evcc_out.txt || true
+          cat evcc_out.txt
+
+      - name: Process Data
         run: python3 sync_vw.py
-      - name: Save to GitHub JSON
+
+      - name: Commit to GitHub
         run: |
           git config user.name "VW-Bot"
           git config user.email "bot@github.com"
