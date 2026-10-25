@@ -7,36 +7,17 @@ jobs:
   sync:
     runs-on: ubuntu-latest
     steps:
-      - name: 1. Test EVCC cu template dedicat ID (fara EU Data Act)
+      - name: Run EVCC in Debug Mode (Fara WeConnect-python)
         env:
           VW_USER: ${{ secrets.VW_USER }}
           VW_PASS: ${{ secrets.VW_PASS }}
         run: |
           python3 -c '
           import os
-          u = os.environ["VW_USER"]
-          p = os.environ["VW_PASS"]
+          u = os.environ["VW_USER"].strip()
+          p = os.environ["VW_PASS"].strip()
           with open("evcc.yaml", "w") as f:
               f.write(f"vehicles:\n  - name: id3\n    type: template\n    template: id\n    user: \"{u}\"\n    password: \"{p}\"\n")
           '
-          docker run --rm -v $(pwd)/evcc.yaml:/etc/evcc.yaml evcc/evcc:latest evcc -c /etc/evcc.yaml vehicle || true
-
-      - name: 2. Test WeConnect-python direct de pe GitHub (ultima versiune)
-        env:
-          VW_USER: ${{ secrets.VW_USER }}
-          VW_PASS: ${{ secrets.VW_PASS }}
-        run: |
-          pip install -q git+https://github.com/tillsteinbach/WeConnect-python.git
-          python3 -c '
-          import os
-          from weconnect import weconnect
-          u = os.environ["VW_USER"].strip()
-          p = os.environ["VW_PASS"].strip()
-          wc = weconnect.WeConnect(username=u, password=p, updateAfterLogin=True)
-          for vin, v in wc.vehicles.items():
-              soc = v.domains["charging"]["batteryStatus"].currentSOC_pct.value
-              rng = v.domains["charging"]["batteryStatus"].cruisingRangeElectric_km.value
-              odo = v.domains["measurements"]["odometerStatus"].odometer.value if "measurements" in v.domains else 0
-              print(f"=== SUCCES WECONNECT: VIN={vin} | SoC={soc}% | Range={rng}km | Km={odo} ===")
-          '
+          docker run --rm -v $(pwd)/evcc.yaml:/etc/evcc.yaml evcc/evcc:latest evcc -l debug -c /etc/evcc.yaml vehicle
           
