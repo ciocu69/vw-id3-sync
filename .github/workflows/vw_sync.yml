@@ -15,8 +15,8 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
-      - name: Install weconnect
-        run: pip install weconnect
+      - name: Install VW library
+        run: pip install volkswagencarnet aiohttp
       - name: Run VW Sync
         env:
           VW_USER: ${{ secrets.VW_USER }}
