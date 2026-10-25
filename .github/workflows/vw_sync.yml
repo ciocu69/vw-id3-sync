@@ -1,0 +1,32 @@
+name: VW ID.3 Telemetry Sync
+
+on:
+  schedule:
+    - cron: '*/20 * * * *'
+  workflow_dispatch:
+  repository_dispatch:
+    types: [force_vw_sync]
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install weconnect
+        run: pip install weconnect
+      - name: Run VW Sync
+        env:
+          VW_USER: ${{ secrets.VW_USER }}
+          VW_PASS: ${{ secrets.VW_PASS }}
+        run: python sync_vw.py
+      - name: Save telemetry to GitHub
+        run: |
+          git config user.name "VW-Bot"
+          git config user.email "bot@github.com"
+          git add vw_data.json
+          git diff --staged --quiet || git commit -m "Auto-update VW telemetry"
+          git push
+          
