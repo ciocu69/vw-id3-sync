@@ -14,19 +14,35 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Fetch via EVCC ID Template
+      - name: Configure and Run EVCC
         env:
           VW_USER: ${{ secrets.VW_USER }}
           VW_PASS: ${{ secrets.VW_PASS }}
         run: |
-          python3 -c '
+          cat << 'EOF' > make_config.py
           import os
-          u = os.environ["VW_USER"].replace("\"", "\\\"")
-          p = os.environ["VW_PASS"].replace("\"", "\\\"")
-          with open("evcc.yaml", "w") as f:
-              f.write(f"vehicles:\n  - name: id3\n    type: template\n    template: id\n    user: \"{u}\"\n    password: \"{p}\"\n")
-          '
-          docker run --rm -v $(pwd)/evcc.yaml:/etc/evcc.yaml evcc/evcc:0.130.0 evcc -c /etc/evcc.yaml vehicle > evcc_out.txt || true
+          u = os.environ.get("VW_USER", "").strip()
+          p = os.environ.get("VW_PASS", "").strip()
+          
+          config_content = f"""vehicles:
+            - name: id3
+              type: template
+              template: id
+              title: ID3
+              user: "{u}"
+              password: "{p}"
+          """
+          with open("evcc.yaml", "w", encoding="utf-8") as f:
+              f.write(config_content)
+          EOF
+          python3 make_config.py
+          
+          echo "=== CONFIG GENERAT (fara parola) ==="
+          grep -v "password:" evcc.yaml
+          echo "====================================="
+          
+          # Rulam direct pe latest cu parametrul vehicle
+          docker run --rm -v $(pwd)/evcc.yaml:/etc/evcc.yaml evcc/evcc:latest evcc -c /etc/evcc.yaml vehicle > evcc_out.txt 2>&1 || true
           cat evcc_out.txt
 
       - name: Process Data
