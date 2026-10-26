@@ -1,14 +1,13 @@
 {
   "last_state": {
-    "timestamp": "25.10.2026 20:39",
-    "date": "25.10.2026",
-    "time": "20:39",
-    "weekday": 6,
-    "soc": 68,
-    "range_km": 229,
-    "odometer": 38693,
+    "timestamp": "26.10.2026 05:14",
+    "date": "26.10.2026",
+    "time": "05:14",
+    "weekday": 0,
+    "soc": 57,
+    "range_km": 0,
+    "odometer": 38720,
     "charging_state": "ready",
-    "raw_status": "Unknown",
     "charge_power_kw": 0.0,
     "charge_type": "ac"
   },
