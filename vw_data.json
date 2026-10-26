@@ -1,10 +1,12 @@
 {
   "last_state": {
-    "timestamp": "26.10.2026 08:21",
+    "timestamp": "26.10.2026 08:27",
     "date": "26.10.2026",
-    "time": "08:21",
+    "time": "08:27",
     "weekday": 0,
     "soc": 57,
+    "battery_capacity_kwh": 58.0,
+    "current_energy_kwh": 33.06,
     "range_km": 200,
     "odometer": 38720,
     "limit_soc": 80,
