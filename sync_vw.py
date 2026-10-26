@@ -1,4 +1,7 @@
-import json, os, re, sys
+import json
+import os
+import re
+import sys
 from datetime import datetime
 from zoneinfo import ZoneInfo
 
@@ -13,7 +16,8 @@ soc = get_val(r"SoC:\s*([\d.,]+)\s*%")
 rng = get_val(r"Range:\s*([\d.,]+)\s*km")
 odo = get_val(r"Odometer:\s*([\d.,]+)\s*km")
 lim = get_val(r"Limit Soc:\s*([\d.,]+)\s*%")
-pwr = get_val(r"Power:\s*([\d.,]+)\s*kW") or 0.0
+cap = get_val(r"Capacity:\s*([\d.,]+)\s*kWh")
+pwr = get_val(r"(?:Charge power|Power):\s*([\d.,]+)\s*kW") or 0.0
 
 st_m = re.search(r"Charge status:\s*([A-Z])", raw, re.I)
 c_code = st_m.group(1).upper() if st_m else "A"
@@ -25,10 +29,11 @@ if soc is None:
 db = json.load(open(DB)) if os.path.exists(DB) else {"sessions": []}
 prev = db.get("last_state", {})
 
-# Daca VW nu trimite Range in pachetul Data Act, estimam realist (~350km la 100%)
 final_soc = int(round(soc))
 final_rng = int(round(rng)) if rng is not None else int(round(final_soc * 3.5))
 final_odo = int(round(odo)) if odo is not None else prev.get("odometer", 0)
+final_cap = round(cap, 1) if cap and cap > 0 else 58.0
+energy_kwh = round((final_soc / 100.0) * final_cap, 2)
 
 is_chg = (c_code == "C" or pwr > 0.5)
 c_state = "charging" if is_chg else ("connected" if c_code == "B" else "ready")
@@ -41,6 +46,8 @@ db["last_state"] = {
     "time": now.strftime("%H:%M"),
     "weekday": now.weekday(),
     "soc": final_soc,
+    "battery_capacity_kwh": final_cap,
+    "current_energy_kwh": energy_kwh,
     "range_km": final_rng,
     "odometer": final_odo,
     "limit_soc": int(round(lim)) if lim is not None else 80,
@@ -49,5 +56,5 @@ db["last_state"] = {
     "charge_type": "dc" if pwr > 12 else "ac"
 }
 
-json.dump(db, open(DB, "w"), indent=2)
-print(f"SINCRONIZAT: SoC={final_soc}% | Range={final_rng}km | Odo={final_odo}km | Status={c_code}")
+json.dump(db, open(DB, "w"), indent=2, ensure_ascii=False)
+print(f"SINCRONIZAT: SoC={final_soc}% ({energy_kwh}kWh/{final_cap}kWh) | Range={final_rng}km | Odo={final_odo}km | Status={c_code}")
