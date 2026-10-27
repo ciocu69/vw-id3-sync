@@ -19,8 +19,8 @@ jobs:
           VW_USER: ${{ secrets.VW_USER }}
           VW_PASS: ${{ secrets.VW_PASS }}
         run: |
-          printf "vehicles:\n  - name: id3\n    type: template\n    template: id\n    vin: \"WVWZZZE1ZNP014459\"\n    user: \"%s\"\n    password: \"%s\"\n" "$VW_USER" "$VW_PASS" > evcc.yaml
-          docker run --rm -v $(pwd)/evcc.yaml:/etc/evcc.yaml evcc/evcc:latest evcc -l debug -c /etc/evcc.yaml vehicle > evcc_out.txt 2>&1 || true
+          printf "vehicles:\n  - name: id3\n    type: template\n    template: id\n    vin: \"WVWZZZE1ZNP014459\"\n    capacity: 58\n    user: \"%s\"\n    password: \"%s\"\n" "$VW_USER" "$VW_PASS" > evcc.yaml
+          docker run --rm -v $(pwd)/evcc.yaml:/etc/evcc.yaml evcc/evcc:latest evcc -c /etc/evcc.yaml vehicle > evcc_out.txt 2>&1 || true
           cat evcc_out.txt
 
       - name: Parse Output
@@ -33,4 +33,17 @@ jobs:
           git add vw_data.json
           git diff --staged --quiet || git commit -m "Update VW telemetry"
           git push
+
+      - name: Keep AI Studio Cloud Run Warm (08:00 - 19:00 RO)
+        run: |
+          APP_URL="https://foaie-de-parcurs-logbook-cntr5hfjsa-nw.a.run.app"
+          
+          # Ora UTC: 06:00 - 17:00 UTC corespunde intervalului 08:00 - 19:00 EET
+          H=$(date -u +%H)
+          if [ "$H" -ge 6 ] && [ "$H" -le 17 ]; then
+            echo "Mentinerie instanta activa: pinging Cloud Run..."
+            curl -sL --max-time 15 "$APP_URL" > /dev/null || true
+          else
+            echo "In afara intervalului 08:00 - 19:00, instanta este lasata in repaus."
+          fi
           
