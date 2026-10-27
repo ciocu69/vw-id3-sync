@@ -1,13 +1,13 @@
 {
   "last_state": {
-    "timestamp": "27.10.2026 10:03",
+    "timestamp": "27.10.2026 11:02",
     "date": "27.10.2026",
-    "time": "10:03",
+    "time": "11:02",
     "weekday": 1,
-    "soc": 29,
+    "soc": 80,
     "battery_capacity_kwh": 58.0,
-    "current_energy_kwh": 16.82,
-    "range_km": 93,
+    "current_energy_kwh": 46.4,
+    "range_km": 256,
     "odometer": 38808,
     "limit_soc": 80,
     "charging_state": "ready",
@@ -15,7 +15,22 @@
     "charge_type": "ac"
   },
   "active_charge": null,
-  "sessions": [],
+  "sessions": [
+    {
+      "id": "chg_1793091755",
+      "date": "27.10.2026",
+      "start_time": "10:03",
+      "end_time": "11:02",
+      "start_soc": 29,
+      "end_soc": 80,
+      "added_kwh": 29.58,
+      "charge_type": "AC",
+      "max_power_kw": 0.0,
+      "odometer": 38808,
+      "tag": "Birou (0 RON)",
+      "cost_ron": 0.0
+    }
+  ],
   "trips": [
     {
       "id": "trip_1793088239",
