@@ -23,11 +23,13 @@ jobs:
           docker run --rm -v $(pwd)/evcc.yaml:/etc/evcc.yaml evcc/evcc:latest evcc -c /etc/evcc.yaml vehicle > evcc_out.txt 2>&1 || true
           cat evcc_out.txt
 
-      - name: Parse Output
+            - name: Parse Output
         env:
           TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          GITHUB_EVENT_NAME: ${{ github.event_name }}
         run: python3 sync_vw.py
+
 
       - name: Save JSON
         run: |
