@@ -2,16 +2,38 @@ import json
 import os
 import re
 import sys
+import urllib.parse
+import urllib.request
 from datetime import datetime
 from zoneinfo import ZoneInfo
 
 DB = "vw_data.json"
 CAP = 58.0
+
+TG_TOKEN = os.environ.get("TELEGRAM_TOKEN", "")
+TG_CHAT_ID = os.environ.get("TELEGRAM_CHAT_ID", "")
+
 raw = open("evcc_out.txt").read() if os.path.exists("evcc_out.txt") else ""
 
 def get_val(pat):
     m = re.search(pat, raw, re.I)
     return float(m.group(1).replace(",", ".")) if m else None
+
+def send_telegram(text):
+    if not TG_TOKEN or not TG_CHAT_ID:
+        return
+    try:
+        url = f"https://api.telegram.org/bot{TG_TOKEN}/sendMessage"
+        payload = urllib.parse.urlencode({
+            "chat_id": TG_CHAT_ID,
+            "text": text,
+            "parse_mode": "HTML",
+            "disable_web_page_preview": "true"
+        }).encode("utf-8")
+        req = urllib.request.Request(url, data=payload)
+        urllib.request.urlopen(req, timeout=5)
+    except Exception as e:
+        print(f"Telegram warning: {e}")
 
 soc = get_val(r"SoC:\s*([\d.,]+)\s*%")
 rng = get_val(r"Range:\s*([\d.,]+)\s*km")
@@ -39,26 +61,24 @@ time_str = now.strftime("%H:%M")
 final_soc = int(round(soc))
 final_odo = int(round(odo)) if odo is not None else prev.get("odometer", 0)
 final_rng = int(round(rng)) if rng is not None else int(round(final_soc * 3.2))
+final_lim = int(round(lim)) if lim is not None else 80
 energy_kwh = round((final_soc / 100.0) * CAP, 2)
 
 is_chg = (c_code == "C" or pwr > 0.5)
 c_state = "charging" if is_chg else ("connected" if c_code == "B" else "ready")
 c_type = "dc" if pwr > 12 else "ac"
 
-# Comparatie cu starea anterioara pentru detectie automata Trip sau Charge
 if prev and "soc" in prev and "odometer" in prev:
     p_soc = prev["soc"]
     p_odo = prev["odometer"]
     p_time = prev.get("time", time_str)
-    p_date = prev.get("date", date_str)
     dist = final_odo - p_odo
     soc_diff = final_soc - p_soc
 
-    # 1. Detectie DRUM (Trip): Odometrul a crescut si SoC a scazut sau a ramas egal
-    if dist >= 1 and soc_diff <= 0:
+    # 1. Detectie DRUM REAL (minim 2 km)
+    if dist >= 2 and soc_diff <= 0:
         used_kwh = round(abs(soc_diff) * CAP / 100.0, 2)
         cons = round((used_kwh / dist) * 100.0, 1) if dist > 0 else 0.0
-        # Daca ultimul trip e din aceeasi zi si acum mai putin de 45 min, il comasam
         trips.insert(0, {
             "id": f"trip_{int(now.timestamp())}",
             "date": date_str,
@@ -73,24 +93,51 @@ if prev and "soc" in prev and "odometer" in prev:
         })
         trips = trips[:200]
 
-    # 2. Detectie INCARCARE (Charge): SoC a crescut cu cel putin 2%
-    elif soc_diff >= 2:
-        added_kwh = round((soc_diff * CAP) / 100.0, 2)
-        sessions.insert(0, {
-            "id": f"chg_{int(now.timestamp())}",
-            "date": date_str,
-            "start_time": p_time,
-            "end_time": time_str,
-            "start_soc": p_soc,
-            "end_soc": final_soc,
-            "added_kwh": added_kwh,
-            "charge_type": prev.get("charge_type", c_type).upper(),
-            "max_power_kw": max(pwr, prev.get("charge_power_kw", 11.0)),
-            "odometer": final_odo,
-            "tag": "Birou (0 RON)" if c_type == "ac" else "Public DC",
-            "cost_ron": 0.0
-        })
-        sessions = sessions[:100]
+    # 2. Detectie & Comasare SESIUNE DE INCARCARE + Notificare Telegram
+    elif soc_diff >= 1 and (is_chg or soc_diff >= 2):
+        if sessions and sessions[0].get("date") == date_str and abs(sessions[0].get("odometer", 0) - final_odo) <= 1:
+            cur_s = sessions[0]
+            cur_s["end_time"] = time_str
+            cur_s["end_soc"] = final_soc
+            total_diff = final_soc - cur_s["start_soc"]
+            cur_s["added_kwh"] = round((total_diff * CAP) / 100.0, 2)
+            cur_s["max_power_kw"] = max(cur_s.get("max_power_kw", 11.0), pwr)
+            cur_s["in_progress"] = is_chg
+        else:
+            added_kwh = round((soc_diff * CAP) / 100.0, 2)
+            sessions.insert(0, {
+                "id": f"chg_{int(now.timestamp())}",
+                "date": date_str,
+                "start_time": p_time,
+                "end_time": time_str,
+                "start_soc": p_soc,
+                "end_soc": final_soc,
+                "added_kwh": added_kwh,
+                "charge_type": prev.get("charge_type", c_type).upper(),
+                "max_power_kw": max(pwr, prev.get("charge_power_kw", 11.0)),
+                "odometer": final_odo,
+                "tag": "Birou (0 RON)" if c_type == "ac" else "Public DC",
+                "cost_ron": 0.0,
+                "in_progress": is_chg
+            })
+            sessions = sessions[:100]
+
+        # Trimite Notificare pe Telegram la fiecare prag de 10% (50%, 60%, 70%, 80%) sau la finalizare
+        if (final_soc // 10) > (p_soc // 10) or final_soc >= final_lim:
+            start_s = sessions[0]["start_soc"]
+            added_s = sessions[0]["added_kwh"]
+            if final_soc >= final_lim or not is_chg:
+                send_telegram(
+                    f"✅ <b>Încărcare finalizată / Limită atinsă ({final_soc}%)</b>\n"
+                    f"🔋 Sesiune: <b>{start_s}% → {final_soc}%</b> (+{added_s} kWh)\n"
+                    f"🛣️ Autonomie: <b>~{final_rng} km</b> | Bord: {final_odo} km"
+                )
+            else:
+                send_telegram(
+                    f"⚡ <b>Recording of charging session in progress</b>\n"
+                    f"ID.3 has recently reached a charge level of <b>{final_soc}%</b>.\n"
+                    f"🔋 Pornit de la: {start_s}% (+{added_s} kWh) | Limită: {final_lim}%"
+                )
 
 db["last_state"] = {
     "timestamp": now_str,
@@ -102,7 +149,7 @@ db["last_state"] = {
     "current_energy_kwh": energy_kwh,
     "range_km": final_rng,
     "odometer": final_odo,
-    "limit_soc": int(round(lim)) if lim is not None else 80,
+    "limit_soc": final_lim,
     "charging_state": c_state,
     "charge_power_kw": round(pwr, 1),
     "charge_type": c_type
@@ -111,4 +158,4 @@ db["trips"] = trips
 db["sessions"] = sessions
 
 json.dump(db, open(DB, "w"), indent=2, ensure_ascii=False)
-print(f"OK: SoC={final_soc}% | Odo={final_odo}km | Trips={len(trips)} | Charges={len(sessions)}")
+print(f"OK: SoC={final_soc}% | Odo={final_odo}km | Status={c_state}")
