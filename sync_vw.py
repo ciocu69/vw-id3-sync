@@ -12,6 +12,7 @@ CAP = 58.0
 
 TG_TOKEN = os.environ.get("TELEGRAM_TOKEN", "")
 TG_CHAT_ID = os.environ.get("TELEGRAM_CHAT_ID", "")
+EVENT_NAME = os.environ.get("GITHUB_EVENT_NAME", "")
 
 raw = open("evcc_out.txt").read() if os.path.exists("evcc_out.txt") else ""
 
@@ -21,6 +22,7 @@ def get_val(pat):
 
 def send_telegram(text):
     if not TG_TOKEN or not TG_CHAT_ID:
+        print("Telegram info: Cheile nu sunt setate in Secrets.")
         return
     try:
         url = f"https://api.telegram.org/bot{TG_TOKEN}/sendMessage"
@@ -32,6 +34,7 @@ def send_telegram(text):
         }).encode("utf-8")
         req = urllib.request.Request(url, data=payload)
         urllib.request.urlopen(req, timeout=5)
+        print("Notificare Telegram trimisa cu succes!")
     except Exception as e:
         print(f"Telegram warning: {e}")
 
@@ -67,6 +70,8 @@ energy_kwh = round((final_soc / 100.0) * CAP, 2)
 is_chg = (c_code == "C" or pwr > 0.5)
 c_state = "charging" if is_chg else ("connected" if c_code == "B" else "ready")
 c_type = "dc" if pwr > 12 else "ac"
+
+notified = False
 
 if prev and "soc" in prev and "odometer" in prev:
     p_soc = prev["soc"]
@@ -122,7 +127,7 @@ if prev and "soc" in prev and "odometer" in prev:
             })
             sessions = sessions[:100]
 
-        # Trimite Notificare pe Telegram la fiecare prag de 10% (50%, 60%, 70%, 80%) sau la finalizare
+        # Notificare automata la praguri de 10% (50%, 60%, 70%, 80%) sau la finalizare
         if (final_soc // 10) > (p_soc // 10) or final_soc >= final_lim:
             start_s = sessions[0]["start_soc"]
             added_s = sessions[0]["added_kwh"]
@@ -138,6 +143,18 @@ if prev and "soc" in prev and "odometer" in prev:
                     f"ID.3 has recently reached a charge level of <b>{final_soc}%</b>.\n"
                     f"🔋 Pornit de la: {start_s}% (+{added_s} kWh) | Limită: {final_lim}%"
                 )
+            notified = True
+
+# 3. NOTIFICARE DE TEST (Se trimite doar cand apesi tu manual "Run workflow" in GitHub)
+if EVENT_NAME == "workflow_dispatch" and not notified:
+    send_telegram(
+        f"🟢 <b>Test Conexiune VW ID.3 Live</b>\n"
+        f"🔋 Baterie: <b>{final_soc}%</b> ({energy_kwh} / {CAP} kWh)\n"
+        f"🛣️ Autonomie: <b>~{final_rng} km</b>\n"
+        f"🔢 Odometru: <b>{final_odo} km</b>\n"
+        f"🔌 Status: <b>{c_state.upper()}</b> (Limită: {final_lim}%)\n"
+        f"🕒 Sincronizat: {now_str}"
+    )
 
 db["last_state"] = {
     "timestamp": now_str,
