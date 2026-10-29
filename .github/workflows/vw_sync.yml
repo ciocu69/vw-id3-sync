@@ -2,7 +2,8 @@ name: VW ID.3 Telemetry Sync
 
 on:
   schedule:
-    - cron: '*/20 * * * *'
+    # Ruleaza automat o data la 45 de minute pentru a evita eroarea "Rate exceeded"
+    - cron: '*/45 * * * *'
   workflow_dispatch:
 
 permissions:
