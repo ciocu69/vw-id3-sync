@@ -1,9 +1,9 @@
 {
   "last_state": {
-    "timestamp": "01.11.2026 23:17",
-    "date": "01.11.2026",
-    "time": "23:17",
-    "weekday": 6,
+    "timestamp": "02.11.2026 00:16",
+    "date": "02.11.2026",
+    "time": "00:16",
+    "weekday": 0,
     "soc": 37,
     "battery_capacity_kwh": 58.0,
     "current_energy_kwh": 21.46,
