@@ -1,15 +1,15 @@
 {
   "last_state": {
-    "timestamp": "09.11.2026 00:18",
+    "timestamp": "09.11.2026 01:17",
     "date": "09.11.2026",
-    "time": "00:18",
+    "time": "01:17",
     "weekday": 0,
     "soc": 53,
     "battery_capacity_kwh": 58.0,
     "current_energy_kwh": 30.74,
     "range_km": 170,
     "odometer": 39523,
-    "limit_soc": 100,
+    "limit_soc": 80,
     "charging_state": "ready",
     "charge_power_kw": 0.0,
     "charge_type": "ac"
