@@ -55,7 +55,7 @@ if soc is None:
         send_telegram(
             f"⚠️ <b>Serverul VW nu a răspuns la apelul manual</b>\n"
             f"Verifică aplicația oficială VW (posibil Termeni și Condiții noi sau mentenanță).\n\n"
-            f"<b>Log EVCC:</b>\n<code>{clean_err[:350]}</code>"
+            f"<b>Log EVCC:</b>\n<code>{clean_err[-500:]}</code>"
         )
     sys.exit(0)
 
