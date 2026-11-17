@@ -22,8 +22,11 @@ jobs:
         run: |
           printf "vehicles:\n  - name: id3\n    type: template\n    template: id\n    vin: \"WVWZZZE1ZNP014459\"\n    capacity: 58\n    user: \"%s\"\n    password: \"%s\"\n" "$VW_USER" "$VW_PASS" > evcc.yaml
           docker pull -q evcc/evcc:nightly
-          docker run --rm -v $(pwd)/evcc.yaml:/etc/evcc.yaml evcc/evcc:nightly evcc -c /etc/evcc.yaml vehicle > evcc_out.txt 2>&1 || true
+          # Stergem baza de date veche EVCC din runner pentru a forta un login complet nou pe noul API VW
+          rm -rf ~/.evcc && mkdir -p ~/.evcc
+          docker run --rm -v $(pwd)/evcc.yaml:/etc/evcc.yaml -v ~/.evcc:/root/.evcc evcc/evcc:nightly evcc -c /etc/evcc.yaml vehicle > evcc_out.txt 2>&1 || true
           cat evcc_out.txt
+
 
       - name: Parse Output and Send Telegram
         env:
