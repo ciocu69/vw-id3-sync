@@ -49,13 +49,15 @@ c_code = st_m.group(1).upper() if st_m else "A"
 
 if soc is None:
     print("ATENTIE: Serverul VW nu a returnat SoC valid la acest apel. Pastram datele anterioare.")
-    print("Output EVCC:", raw.strip())
+    # Eliminam animatia de spatii goale si pastram doar liniile cu text real
+    lines = [line.strip() for line in re.split(r'[\r\n]+', raw) if line.strip() and not re.match(r'^\d+s$', line.strip())]
+    clean_text = "\n".join(lines)
+    print("Output EVCC curatat:\n", clean_text)
     if EVENT_NAME == "workflow_dispatch":
-        clean_err = raw.strip().replace("<", "&lt;").replace(">", "&gt;")
+        clean_err = clean_text.replace("<", "&lt;").replace(">", "&gt;")
         send_telegram(
-            f"⚠️ <b>Serverul VW nu a răspuns la apelul manual</b>\n"
-            f"Verifică aplicația oficială VW (posibil Termeni și Condiții noi sau mentenanță).\n\n"
-            f"<b>Log EVCC:</b>\n<code>{clean_err[-500:]}</code>"
+            f"⚠️ <b>Serverul VW nu a răspuns la apelul manual</b>\n\n"
+            f"<b>Eroare exactă EVCC:</b>\n<code>{clean_err[-600:] if clean_err else 'Fisier gol'}</code>"
         )
     sys.exit(0)
 
