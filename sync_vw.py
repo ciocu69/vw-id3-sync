@@ -48,8 +48,16 @@ st_m = re.search(r"Charge status:\s*([A-Z])", raw, re.I)
 c_code = st_m.group(1).upper() if st_m else "A"
 
 if soc is None:
-    print("EROARE: EVCC nu a returnat SoC valid.")
-    sys.exit(1)
+    print("ATENTIE: Serverul VW nu a returnat SoC valid la acest apel. Pastram datele anterioare.")
+    print("Output EVCC:", raw.strip())
+    if EVENT_NAME == "workflow_dispatch":
+        clean_err = raw.strip().replace("<", "&lt;").replace(">", "&gt;")
+        send_telegram(
+            f"⚠️ <b>Serverul VW nu a răspuns la apelul manual</b>\n"
+            f"Verifică aplicația oficială VW (posibil Termeni și Condiții noi sau mentenanță).\n\n"
+            f"<b>Log EVCC:</b>\n<code>{clean_err[:350]}</code>"
+        )
+    sys.exit(0)
 
 db = json.load(open(DB)) if os.path.exists(DB) else {}
 prev = db.get("last_state", {})
@@ -67,7 +75,7 @@ final_rng = int(round(rng)) if rng is not None else int(round(final_soc * 3.2))
 final_lim = int(round(lim)) if lim is not None else 80
 energy_kwh = round((final_soc / 100.0) * CAP, 2)
 
-# Fortam starea de incarcare daca EVCC zice ca e in priza/incarca SAU daca bateria a crescut fata de runda trecuta!
+# Fortam starea de incarcare daca EVCC zice ca e in priza/incarca SAU daca bateria a crescut fata de runda trecuta
 p_soc_prev = prev.get("soc", final_soc)
 soc_diff_check = final_soc - p_soc_prev
 is_chg = (c_code == "C" or pwr > 0.5 or soc_diff_check >= 1)
