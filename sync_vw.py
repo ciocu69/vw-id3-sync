@@ -49,7 +49,6 @@ c_code = st_m.group(1).upper() if st_m else "A"
 
 if soc is None:
     print("ATENTIE: Serverul VW nu a returnat SoC valid la acest apel. Pastram datele anterioare.")
-    # 1. Stergem codurile ANSI, cronometrul spinner-ului (ex: 3s, 3.001s) si compriman spatiile multiple
     cleaned = re.sub(r'\x1b\[[0-9;]*[a-zA-Z]', '', raw)
     cleaned = re.sub(r'\b\d+(?:\.\d+)?s\b', '', cleaned)
     cleaned = re.sub(r'[ \t]{2,}', ' ', cleaned)
@@ -60,7 +59,7 @@ if soc is None:
         clean_err = clean_text.replace("<", "&lt;").replace(">", "&gt;")
         send_telegram(
             f"⚠️ <b>Serverul VW nu a răspuns la apelul manual</b>\n\n"
-            f"<b>Eroare exactă EVCC:</b>\n<code>{clean_err[-600:] if clean_err else 'Niciun text returnat de EVCC (timeout conexiune VW)'}</code>"
+            f"<b>Eroare exactă EVCC:</b>\n<code>{clean_err[-600:] if clean_err else 'Niciun text returnat de EVCC'}</code>"
         )
     sys.exit(0)
 
@@ -80,7 +79,6 @@ final_rng = int(round(rng)) if rng is not None else int(round(final_soc * 3.2))
 final_lim = int(round(lim)) if lim is not None else 80
 energy_kwh = round((final_soc / 100.0) * CAP, 2)
 
-# Fortam starea de incarcare daca EVCC zice ca e in priza/incarca SAU daca bateria a crescut fata de runda trecuta
 p_soc_prev = prev.get("soc", final_soc)
 soc_diff_check = final_soc - p_soc_prev
 is_chg = (c_code == "C" or pwr > 0.5 or soc_diff_check >= 1)
@@ -97,7 +95,6 @@ if prev and "soc" in prev and "odometer" in prev:
     dist = final_odo - p_odo
     soc_diff = final_soc - p_soc
 
-    # 1. Detectie DRUM REAL (minim 2 km si SoC scazut/egal)
     if dist >= 2 and soc_diff <= 0:
         used_kwh = round(abs(soc_diff) * CAP / 100.0, 2)
         cons = round((used_kwh / dist) * 100.0, 1) if dist > 0 else 0.0
@@ -115,7 +112,6 @@ if prev and "soc" in prev and "odometer" in prev:
         })
         trips = trips[:200]
 
-    # 2. Detectie & Comasare SESIUNE DE INCARCARE (datorita cresterii SoC, chiar daca VW zice Parked)
     elif soc_diff >= 1:
         if sessions and sessions[0].get("date") == date_str and abs(sessions[0].get("odometer", 0) - final_odo) <= 2:
             cur_s = sessions[0]
@@ -144,7 +140,6 @@ if prev and "soc" in prev and "odometer" in prev:
             })
             sessions = sessions[:100]
 
-        # Notificare automata pe Telegram la praguri de 10% (ex: 50%, 60%, 70%, 80%) sau la atingerea limitei
         if (final_soc // 10) > (p_soc // 10) or final_soc >= final_lim:
             start_s = sessions[0]["start_soc"]
             added_s = sessions[0]["added_kwh"]
@@ -156,13 +151,12 @@ if prev and "soc" in prev and "odometer" in prev:
                 )
             else:
                 send_telegram(
-                    f"⚡ <b>Recording of charging session in progress</b>\n"
-                    f"ID.3 has recently reached a charge level of <b>{final_soc}%</b>.\n"
+                    f"⚡ <b>Sesiune de încărcare în curs</b>\n"
+                    f"ID.3 a ajuns la <b>{final_soc}%</b>.\n"
                     f"🔋 Pornit de la: {start_s}% (+{added_s} kWh) | Limită: {final_lim}%"
                 )
             notified = True
 
-# 3. NOTIFICARE DE TEST (Doar la rulare manuala din Actions)
 if EVENT_NAME == "workflow_dispatch" and not notified:
     send_telegram(
         f"🟢 <b>Test Conexiune VW ID.3 Live</b>\n"
