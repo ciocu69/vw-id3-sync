@@ -49,15 +49,18 @@ c_code = st_m.group(1).upper() if st_m else "A"
 
 if soc is None:
     print("ATENTIE: Serverul VW nu a returnat SoC valid la acest apel. Pastram datele anterioare.")
-    # Eliminam animatia de spatii goale si pastram doar liniile cu text real
-    lines = [line.strip() for line in re.split(r'[\r\n]+', raw) if line.strip() and not re.match(r'^\d+s$', line.strip())]
+    # 1. Stergem codurile ANSI, cronometrul spinner-ului (ex: 3s, 3.001s) si compriman spatiile multiple
+    cleaned = re.sub(r'\x1b\[[0-9;]*[a-zA-Z]', '', raw)
+    cleaned = re.sub(r'\b\d+(?:\.\d+)?s\b', '', cleaned)
+    cleaned = re.sub(r'[ \t]{2,}', ' ', cleaned)
+    lines = [line.strip() for line in re.split(r'[\r\n]+', cleaned) if line.strip()]
     clean_text = "\n".join(lines)
     print("Output EVCC curatat:\n", clean_text)
     if EVENT_NAME == "workflow_dispatch":
         clean_err = clean_text.replace("<", "&lt;").replace(">", "&gt;")
         send_telegram(
             f"⚠️ <b>Serverul VW nu a răspuns la apelul manual</b>\n\n"
-            f"<b>Eroare exactă EVCC:</b>\n<code>{clean_err[-600:] if clean_err else 'Fisier gol'}</code>"
+            f"<b>Eroare exactă EVCC:</b>\n<code>{clean_err[-600:] if clean_err else 'Niciun text returnat de EVCC (timeout conexiune VW)'}</code>"
         )
     sys.exit(0)
 
