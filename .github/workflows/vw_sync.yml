@@ -2,7 +2,6 @@ name: VW ID.3 Telemetry Sync
 
 on:
   schedule:
-    # Ruleaza automat o data la 45 de minute pentru a evita eroarea "Rate exceeded"
     - cron: '*/45 * * * *'
   workflow_dispatch:
 
@@ -15,15 +14,67 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Run EVCC with Explicit VIN
+      - name: Run EVCC with Explicit VIN (with EU Data Act Host Auto-Patch)
         env:
           VW_USER: ${{ secrets.VW_USER }}
           VW_PASS: ${{ secrets.VW_PASS }}
         run: |
-          printf "vehicles:\n  - name: id3\n    type: template\n    template: weconnect\n    vin: \"WVWZZZE1ZNP014459\"\n    capacity: 58\n    user: \"%s\"\n    password: \"%s\"\n" "$VW_USER" "$VW_PASS" > evcc.yaml
+          printf "vehicles:\n  - name: id3\n    type: template\n    template: id\n    vin: \"WVWZZZE1ZNP014459\"\n    capacity: 58\n    user: \"%s\"\n    password: \"%s\"\n" "$VW_USER" "$VW_PASS" > evcc.yaml
           docker pull -q evcc/evcc:nightly
           rm -rf ~/.evcc && mkdir -p ~/.evcc
           docker run --rm -v $(pwd)/evcc.yaml:/etc/evcc.yaml -v ~/.evcc:/root/.evcc evcc/evcc:nightly evcc -c /etc/evcc.yaml vehicle > evcc_out.txt 2>&1 || true
+
+          if grep -q "unexpected login redirect host" evcc_out.txt; then
+            echo "Imaginea Docker EVCC are inca vechiul host hardcodat. Aplicam patch pentru eu-data-act.vwgroup-datahub.com..."
+            git clone --depth 1 https://github.com/evcc-io/evcc.git /tmp/evcc-src
+            python3 - << 'EOF'
+          import glob, os, re
+
+          root = "/tmp/evcc-src"
+          # 1. Inlocuim vechiul domeniu drivesomethinggreater.com cu eu-data-act.vwgroup-datahub.com in toate fisierele Go din vehicle/
+          for path in glob.glob(f"{root}/vehicle/**/*.go", recursive=True):
+              with open(path, "r", encoding="utf-8") as f:
+                  content = f.read()
+              if "drivesomethinggreater.com" in content or "unexpected login redirect host" in content:
+                  new_content = re.sub(
+                      r"([a-zA-Z0-9-]+\.)*drivesomethinggreater\.com",
+                      "eu-data-act.vwgroup-datahub.com",
+                      content,
+                  )
+                  # Dezactivam eventuala blocare pe host diferit in CheckRedirect
+                  new_content = re.sub(
+                      r'return\s+fmt\.Errorf\("unexpected login redirect host[^)]+\)',
+                      'return nil',
+                      new_content,
+                  )
+                  with open(path, "w", encoding="utf-8") as f:
+                      f.write(new_content)
+                  print(f"Patched: {path}")
+
+          # 2. Asiguram fisierele dummy pentru directivele //go:embed (pentru a nu compila interfata web Vue)
+          for path in glob.glob(f"{root}/**/*.go", recursive=True):
+              base_dir = os.path.dirname(path)
+              with open(path, "r", encoding="utf-8") as f:
+                  for line in f:
+                      m = re.match(r"^\s*//go:embed\s+(.+)$", line)
+                      if m:
+                          for pattern in m.group(1).split():
+                              clean_pat = pattern.removeprefix("all:")
+                              target = os.path.join(base_dir, clean_pat)
+                              if "*" in clean_pat:
+                                  d = os.path.dirname(target)
+                                  os.makedirs(d, exist_ok=True)
+                                  if not os.listdir(d):
+                                      open(os.path.join(d, "dummy.txt"), "w").close()
+                              elif not os.path.exists(target):
+                                  os.makedirs(target, exist_ok=True)
+                                  open(os.path.join(target, "index.html"), "w").close()
+          EOF
+            cd /tmp/evcc-src
+            GOTOOLCHAIN=auto go run main.go -c "$GITHUB_WORKSPACE/evcc.yaml" vehicle > "$GITHUB_WORKSPACE/evcc_out.txt" 2>&1 || true
+            cd "$GITHUB_WORKSPACE"
+          fi
+
           cat evcc_out.txt
 
       - name: Parse Output and Send Telegram
