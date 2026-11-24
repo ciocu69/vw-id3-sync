@@ -1,14 +1,14 @@
 {
   "last_state": {
-    "timestamp": "24.11.2026 04:54",
+    "timestamp": "24.11.2026 05:54",
     "date": "24.11.2026",
-    "time": "04:54",
+    "time": "05:54",
     "weekday": 1,
     "soc": 87,
     "battery_capacity_kwh": 58.0,
     "current_energy_kwh": 50.46,
     "range_km": 278,
-    "odometer": 40825,
+    "odometer": 40832,
     "limit_soc": 80,
     "charging_state": "ready",
     "charge_power_kw": 0.0,
@@ -258,6 +258,18 @@
     }
   ],
   "trips": [
+    {
+      "id": "trip_1795492473",
+      "date": "24.11.2026",
+      "start_time": "04:54",
+      "end_time": "05:54",
+      "start_soc": 87,
+      "end_soc": 87,
+      "distance_km": 7,
+      "energy_used_kwh": 0.0,
+      "consumption_kwh_100km": 0.0,
+      "odometer_end": 40832
+    },
     {
       "id": "trip_1795485566",
       "date": "24.11.2026",
